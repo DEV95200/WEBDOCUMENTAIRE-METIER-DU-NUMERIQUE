@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roue + Nav – Prototype</title>
+  <style>
+    :root {
+      /* === FACTEURS À MODIFIER POUR LA POSITION / TAILLE DE LA ROUE === */
+      --gear-width: 620px;        /* taille de la roue entière */
+      --gear-position-side: left; /* côté de positionnement: 'left' ou 'right' */
+      --gear-offset-horizontal: 800px; /* distance du bord (positif = plus éloigné du bord) */
+      --gear-clip-size: 520px;    /* taille de la fenêtre qui découpe la roue */
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: transparent;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    /************** NAV **************/
+    header.main-nav {
+      border: 3px solid #000;
+      padding: 10px 18px;
+      margin-bottom: 48px;
+      background: #ffffff;
+    }
+
+    #navList {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    #navList li {
+      padding: 4px 10px;
+      border-radius: 999px;
+      transition: background 0.25s ease, color 0.25s ease, transform 0.12s ease;
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    #navList li:hover {
+      background: #f0f0f0;
+      transform: translateY(-1px);
+    }
+
+    #navList li.active {
+      background: #000;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    /************** LAYOUT **************/
+    .layout {
+      margin-top: 48px;
+      display: flex;
+      justify-content: flex-end;
+      flex: 1;
+    }
+
+    .gear-clip {
+      width: var(--gear-clip-size);
+      height: var(--gear-clip-size);
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    /* ====== MODULE ROUE ====== */
+    #gear-module {
+      aspect-ratio: 1 / 1;
+      top: 0;
+    }
+    
+    /* Positionnement dynamique gauche/droite */
+    #gear-module[data-side="right"] {
+      right: var(--gear-offset-horizontal);
+      left: auto;
+    }
+    
+    #gear-module[data-side="left"] {
+      left: var(--gear-offset-horizontal);
+      right: auto;
+    }
+
+    #gear-svg { width: 100%; height: 100%; display: block; }
+
+    #gearGroup {
+      transform-box: fill-box;
+      transform-origin: center;
+      transition: transform 0.6s ease-in-out;
+    }
+
+    /* Point chaud unique */
+    #hotspot {
+      fill: #000;
+      transition: transform 0.15s ease, fill 0.15s ease;
+    }
+
+    #hotspot.active {
+      transform: scale(1.25);
+      fill: #111;
+    }
+
+    /* Ligne animée */
+    #labelLine {
+      stroke: #000;
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    /* Texte de rubrique */
+    #labelText {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      fill: #000;
+      opacity: 0;
+      transform: translateY(5px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+    }
+
+    #labelText.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /************** VIDÉO CENTRALE **************/
+    .video-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 480px;
+      height: 270px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      z-index: 10;
+    }
+
+    .video-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+      color: white;
+      padding: 20px;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+
+    .video-container:hover .video-overlay {
+      transform: translateY(0);
+    }
+
+    .video-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .video-description {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    /************** FOOTER **************/
+    .main-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: #ffffff;
+      border-top: 3px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 100;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .footer-credit {
+      color: #666;
+    }
+
+    .footer-podcast {
+      background: #000;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.25s ease, transform 0.12s ease;
+      user-select: none;
+    }
+
+    .footer-podcast:hover {
+      background: #333;
+      transform: translateY(-1px);
+    }
+
+    /************** OVERLAY PODCAST **************/
+    .podcast-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      z-index: 1000;
+    }
+
+    .podcast-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .podcast-content {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 800px;
+      width: 90%;
+      max-height: 90%;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .podcast-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease;
+    }
+
+    .podcast-close:hover {
+      background: #f0f0f0;
+    }
+
+    .podcast-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #000;
+    }
+
+    .podcast-video {
+      width: 100%;
+      height: 300px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .podcast-description {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    @media (max-width: 700px) {
+      :root { 
+        --gear-clip-size: 320px; 
+        --gear-width: 520px; 
+        --gear-offset-horizontal: 180px;
+      }
+      
+      .video-container {
+        width: 320px;
+        height: 180px;
+      }
+      
+      body {
+        padding-bottom: 60px;
+      }
+      
+      .main-footer {
+        padding: 0 16px;
+      }
+      
+      .footer-left {
+        gap: 16px;
+      }
+      
+      .podcast-content {
+        padding: 24px;
+      }
+      
+      .podcast-video {
+        height: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="main-nav">
+    <ul id="navList">
+      <li data-index="0">Maîtrise du Front-End</li>
+      <li data-index="1">Maîtrise du Back-End</li>
+      <li data-index="2">Communication Front / Back</li>
+      <li data-index="3">Niveau d'expertise &amp; progression</li>
+      <li data-index="4">Vision &amp; culture technologique</li>
+      <li data-index="5">Développeur full stack</li>
+    </ul>
+  </header>
+
+  <div class="layout">
+    <!-- Vidéo centrale -->
+    <div class="video-container" id="videoContainer">
+      <video id="mainVideo" autoplay muted loop>
+        <source src="#" type="video/mp4">
+        Votre navigateur ne supporte pas la vidéo HTML5.
+      </video>
+      <div class="video-overlay">
+        <div class="video-title" id="videoTitle">Maîtrise du Front-End</div>
+        <div class="video-description" id="videoDescription">Découvrez les technologies et méthodologies du développement front-end moderne.</div>
+      </div>
+    </div>
+
+    <!-- Roue interactive -->
+    <div class="gear-clip" id="gearClickZone" title="Clique au-dessus pour avancer, en dessous pour revenir">
+      <div id="gear-module">
+        <svg id="gear-svg" viewBox="-200 -200 20 400">
+          <g id="gearGroup"></g>
+          <circle id="hotspot" cx="0" cy="0" r="7"></circle>
+          <line id="labelLine" x1="0" y1="0" x2="0" y2="0"></line>
+          <text id="labelText" x="0" y="0" text-anchor="start"></text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="main-footer">
+    <div class="footer-left">
+      <div class="footer-credit">© 2026 - Documentaire Développement Full Stack</div>
+      <div class="footer-podcast" id="podcastBtn">🎙️ Podcast</div>
+    </div>
+  </footer>
+
+  <!-- Overlay Podcast -->
+  <div class="podcast-overlay" id="podcastOverlay">
+    <div class="podcast-content">
+      <button class="podcast-close" id="podcastClose">×</button>
+      <h2 class="podcast-title">Podcast Tech & Développement</h2>
+      <video class="podcast-video" controls>
+        <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+        Votre navigateur ne supporte pas la vidéo HTML5.
+      </video>
+      <div class="podcast-description">
+        <p>Plongez dans l'univers du développement full stack avec nos experts. Découvrez les dernières tendances, les meilleures pratiques et les retours d'expérience de professionnels du secteur.</p>
+        <p>Chaque épisode explore en profondeur les technologies, les méthodologies et les défis rencontrés par les développeurs modernes, du front-end au back-end.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration dynamique du positionnement
+    function setupGearPositioning() {
+      const gearModule = document.getElementById('gear-module');
+      const rootStyles = getComputedStyle(document.documentElement);
+      const positionSide = rootStyles.getPropertyValue('--gear-position-side').trim();
+      
+      gearModule.setAttribute('data-side', positionSide);
+    }
+
+    const sections = [
+      "Maîtrise du Front-End",
+      "Maîtrise du Back-End",
+      "Communication Front / Back",
+      "Niveau d'expertise & progression",
+      "Vision & culture technologique",
+      "Développeur full stack"
+    ];
+
+    // Configuration des vidéos et descriptions pour chaque section
+    const videoData = [
+      {
+        title: "Maîtrise du Front-End",
+        description: "Découvrez les technologies et méthodologies du développement front-end moderne : HTML5, CSS3, JavaScript ES6+, React, Vue.js.",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+      },
+      {
+        title: "Maîtrise du Back-End",
+        description: "Explorez l'architecture serveur, les bases de données, les APIs REST et GraphQL, Node.js, Python, et les microservices.",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+      },
+      {
+        title: "Communication Front / Back",
+        description: "Apprenez à créer des interfaces fluides entre le front-end et le back-end : APIs, authentification, gestion d'état.",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
+      },
+      {
+        title: "Niveau d'expertise & progression",
+        description: "Développez vos compétences techniques et soft skills pour évoluer dans votre carrière de développeur full stack.",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+      },
+      {
+        title: "Vision & culture technologique",
+        description: "Cultivez votre vision technologique, restez à jour avec les tendances et adoptez les meilleures pratiques du secteur.",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"
+      },
+      {
+        title: "Développeur full stack",
+        description: "Maîtrisez l'art du développement full stack : de la conception à la production, en passant par le déploiement et la maintenance.",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4"
+      }
+    ];
+
+    const svg       = document.getElementById("gear-svg");
+    const gearGroup = document.getElementById("gearGroup");
+    const teeth     = sections.length;
+
+    const baseRadius   = 80;
+    const toothLength  = 38;
+    const toothWidth   = 52;
+    const cornerRadius = 10;
+    const holeRadius   = 35;
+    const gearColor    = "#d8d8d8";
+    const outerRadius  = baseRadius + toothLength;
+
+    // Corps
+    const body = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    body.setAttribute("cx", "0");
+    body.setAttribute("cy", "0");
+    body.setAttribute("r", String(baseRadius));
+    body.setAttribute("fill", gearColor);
+    gearGroup.appendChild(body);
+
+    // Dents
+    for (let i = 0; i < teeth; i++) {
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", String(-toothWidth / 2));
+      rect.setAttribute("y", String(-baseRadius - toothLength + 4));
+      rect.setAttribute("width", String(toothWidth));
+      rect.setAttribute("height", String(toothLength));
+      rect.setAttribute("rx", String(cornerRadius));
+      rect.setAttribute("ry", String(cornerRadius));
+      rect.setAttribute("fill", gearColor);
+      rect.setAttribute("transform", `rotate(${(360 / teeth) * i})`);
+      gearGroup.appendChild(rect);
+    }
+
+    // Trou
+    const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    center.setAttribute("cx", "0");
+    center.setAttribute("cy", "0");
+    center.setAttribute("r", String(holeRadius));
+    center.setAttribute("fill", "#ffffff");
+    gearGroup.appendChild(center);
+
+    const hotspot   = document.getElementById("hotspot");
+    const labelLine = document.getElementById("labelLine");
+    const labelText = document.getElementById("labelText");
+
+    function positionHotspotAndLabel(index) {
+      const angle = (2 * Math.PI / teeth) * index - Math.PI / 2;
+
+      const hx = Math.cos(angle) * (outerRadius + 4);
+      const hy = Math.sin(angle) * (outerRadius + 4);
+      hotspot.setAttribute("cx", hx.toFixed(2));
+      hotspot.setAttribute("cy", hy.toFixed(2));
+
+      const direction   = Math.cos(angle) >= 0 ? 1 : -1;
+      const startOffset = 6;
+      const lineLen     = 70;
+
+      const x1 = hx + direction * startOffset;
+      const y1 = hy;
+      const x2 = x1 + direction * lineLen;
+      const y2 = y1;
+
+      labelLine.setAttribute("x1", x1.toFixed(2));
+      labelLine.setAttribute("y1", y1.toFixed(2));
+      labelLine.setAttribute("x2", x2.toFixed(2));
+      labelLine.setAttribute("y2", y2.toFixed(2));
+
+      labelText.setAttribute("x", (x2 + direction * 6).toFixed(2));
+      labelText.setAttribute("y", (y2 + 4).toFixed(2));
+      labelText.setAttribute("text-anchor", direction > 0 ? "start" : "end");
+    }
+
+    function animateLabel() {
+      const length = labelLine.getTotalLength();
+      labelLine.style.strokeDasharray = length;
+      labelLine.style.transition = "none";
+      labelLine.style.strokeDashoffset = length;
+      labelText.classList.remove("active");
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          labelLine.style.transition = "stroke-dashoffset 0.35s ease";
+          labelLine.style.strokeDashoffset = 0;
+          labelText.classList.add("active");
+        });
+      });
+    }
+
+    const navItems      = Array.from(document.querySelectorAll("#navList li"));
+    const gearClickZone = document.getElementById("gearClickZone");
+    const mainVideo     = document.getElementById("mainVideo");
+    const videoTitle    = document.getElementById("videoTitle");
+    const videoDescription = document.getElementById("videoDescription");
+
+    // Fonction pour mettre à jour la vidéo
+    function updateVideo(index) {
+      const data = videoData[index];
+      if (data) {
+        mainVideo.src = data.videoUrl;
+        videoTitle.textContent = data.title;
+        videoDescription.textContent = data.description;
+        
+        // Petit délai pour s'assurer que la vidéo se charge correctement
+        setTimeout(() => {
+          mainVideo.load();
+          mainVideo.play().catch(e => console.log('Autoplay prevented:', e));
+        }, 100);
+      }
+    }
+
+    let currentIndex = 0;
+    const stepAngle = 360 / teeth;
+
+    function updateUI() {
+      gearGroup.style.transform = `rotate(${currentIndex * stepAngle}deg)`;
+
+      positionHotspotAndLabel(currentIndex);
+      labelText.textContent = sections[currentIndex];
+      animateLabel();
+
+      navItems.forEach((li, i) => li.classList.toggle("active", i === currentIndex));
+      hotspot.classList.add("active");
+      
+      // Mettre à jour la vidéo centrale
+      updateVideo(currentIndex);
+    }
+
+    function goNext() {
+      currentIndex = (currentIndex + 1) % sections.length;
+      updateUI();
+    }
+
+    function goPrev() {
+      currentIndex = (currentIndex - 1 + sections.length) % sections.length;
+      updateUI();
+    }
+
+    gearClickZone.addEventListener("click", (e) => {
+      const rect = gearClickZone.getBoundingClientRect();
+      const centerY = rect.top + rect.height / 2;
+      if (e.clientY < centerY) goNext();
+      else goPrev();
+    });
+
+    navItems.forEach((li) => {
+      li.addEventListener("click", () => {
+        const index = Number(li.dataset.index);
+        if (!Number.isNaN(index)) {
+          currentIndex = index;
+          updateUI();
+        }
+      });
+    });
+
+    // Gestion de l'overlay podcast
+    const podcastBtn = document.getElementById('podcastBtn');
+    const podcastOverlay = document.getElementById('podcastOverlay');
+    const podcastClose = document.getElementById('podcastClose');
+
+    podcastBtn.addEventListener('click', () => {
+      podcastOverlay.classList.add('active');
+    });
+
+    podcastClose.addEventListener('click', () => {
+      podcastOverlay.classList.remove('active');
+    });
+
+    podcastOverlay.addEventListener('click', (e) => {
+      if (e.target === podcastOverlay) {
+        podcastOverlay.classList.remove('active');
+      }
+    });
+
+    // Initialisation
+    setupGearPositioning();
+    updateUI();
+  </script>
+</body>
+</html>
